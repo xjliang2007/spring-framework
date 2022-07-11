@@ -1262,7 +1262,6 @@ public class Enhancer extends AbstractClassGenerator {
 		se.invoke_constructor(THREAD_LOCAL, CSTRUCT_NULL);
 		se.putfield(THREAD_CALLBACKS_FIELD);
 
-		final Object[] state = new Object[1];
 		CallbackGenerator.Context context = new CallbackGenerator.Context() {
 			@Override
 			public ClassLoader getClassLoader() {

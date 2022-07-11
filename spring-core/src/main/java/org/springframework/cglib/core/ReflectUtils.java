@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.springframework.asm.Attribute;
 import org.springframework.asm.Type;
 
 /**
@@ -63,9 +62,9 @@ public class ReflectUtils {
 
 	private static final Method classLoaderDefineClassMethod;
 
-	private static final ProtectionDomain PROTECTION_DOMAIN;
-
 	private static final Throwable THROWABLE;
+
+	private static final ProtectionDomain PROTECTION_DOMAIN;
 
 	private static final List<Method> OBJECT_METHODS = new ArrayList<Method>();
 
@@ -73,11 +72,9 @@ public class ReflectUtils {
 		Method privateLookupIn;
 		Method lookupDefineClass;
 		Method classLoaderDefineClass;
-		ProtectionDomain protectionDomain;
 		Throwable throwable = null;
 		try {
 			privateLookupIn = (Method) AccessController.doPrivileged(new PrivilegedExceptionAction() {
-				@Override
 				public Object run() throws Exception {
 					try {
 						return MethodHandles.class.getMethod("privateLookupIn", Class.class, MethodHandles.Lookup.class);
@@ -88,7 +85,6 @@ public class ReflectUtils {
 				}
 			});
 			lookupDefineClass = (Method) AccessController.doPrivileged(new PrivilegedExceptionAction() {
-				@Override
 				public Object run() throws Exception {
 					try {
 						return MethodHandles.Lookup.class.getMethod("defineClass", byte[].class);
@@ -99,25 +95,9 @@ public class ReflectUtils {
 				}
 			});
 			classLoaderDefineClass = (Method) AccessController.doPrivileged(new PrivilegedExceptionAction() {
-				@Override
 				public Object run() throws Exception {
 					return ClassLoader.class.getDeclaredMethod("defineClass",
 							String.class, byte[].class, Integer.TYPE, Integer.TYPE, ProtectionDomain.class);
-				}
-			});
-			protectionDomain = getProtectionDomain(ReflectUtils.class);
-			AccessController.doPrivileged(new PrivilegedExceptionAction() {
-				@Override
-				public Object run() throws Exception {
-					Method[] methods = Object.class.getDeclaredMethods();
-					for (Method method : methods) {
-						if ("finalize".equals(method.getName())
-								|| (method.getModifiers() & (Modifier.FINAL | Modifier.STATIC)) > 0) {
-							continue;
-						}
-						OBJECT_METHODS.add(method);
-					}
-					return null;
 				}
 			});
 		}
@@ -125,20 +105,32 @@ public class ReflectUtils {
 			privateLookupIn = null;
 			lookupDefineClass = null;
 			classLoaderDefineClass = null;
-			protectionDomain = null;
 			throwable = t;
 		}
+
 		privateLookupInMethod = privateLookupIn;
 		lookupDefineClassMethod = lookupDefineClass;
 		classLoaderDefineClassMethod = classLoaderDefineClass;
-		PROTECTION_DOMAIN = protectionDomain;
 		THROWABLE = throwable;
+		PROTECTION_DOMAIN = getProtectionDomain(ReflectUtils.class);
+
+		AccessController.doPrivileged(new PrivilegedAction() {
+			public Object run() {
+				Method[] methods = Object.class.getDeclaredMethods();
+				for (Method method : methods) {
+					if ("finalize".equals(method.getName())
+							|| (method.getModifiers() & (Modifier.FINAL | Modifier.STATIC)) > 0) {
+						continue;
+					}
+					OBJECT_METHODS.add(method);
+				}
+				return null;
+			}
+		});
 	}
 	// SPRING PATCH END
 
-	private static final String[] CGLIB_PACKAGES = {
-			"java.lang",
-	};
+	private static final String[] CGLIB_PACKAGES = {"java.lang"};
 
 	static {
 		primitives.put("byte", Byte.TYPE);
@@ -164,7 +156,11 @@ public class ReflectUtils {
 		if (source == null) {
 			return null;
 		}
-		return (ProtectionDomain) AccessController.doPrivileged((PrivilegedAction) source::getProtectionDomain);
+		return (ProtectionDomain) AccessController.doPrivileged(new PrivilegedAction() {
+			public Object run() {
+				return source.getProtectionDomain();
+			}
+		});
 	}
 
 	public static Type[] getExceptionTypes(Member member) {
@@ -353,9 +349,8 @@ public class ReflectUtils {
 	}
 
 	public static String[] getNames(Class[] classes) {
-		if (classes == null) {
+		if (classes == null)
 			return null;
-		}
 		String[] names = new String[classes.length];
 		for (int i = 0; i < names.length; i++) {
 			names[i] = classes[i].getName();
@@ -448,17 +443,16 @@ public class ReflectUtils {
 		if (type == Object.class) {
 			list.addAll(OBJECT_METHODS);
 		}
-		else {
-			list.addAll(Arrays.asList(type.getDeclaredMethods()));
-		}
+		else
+			list.addAll(java.util.Arrays.asList(type.getDeclaredMethods()));
 
 		Class superclass = type.getSuperclass();
 		if (superclass != null) {
 			addAllMethods(superclass, list);
 		}
 		Class[] interfaces = type.getInterfaces();
-		for (Class anInterface : interfaces) {
-			addAllMethods(anInterface, list);
+		for (int i = 0; i < interfaces.length; i++) {
+			addAllMethods(interfaces[i], list);
 		}
 
 		return list;
@@ -501,6 +495,7 @@ public class ReflectUtils {
 			ProtectionDomain protectionDomain, Class<?> contextClass) throws Exception {
 
 		Class c = null;
+		Throwable t = THROWABLE;
 
 		// Preferred option: JDK 9+ Lookup.defineClass API if ClassLoader matches
 		if (contextClass != null && contextClass.getClassLoader() == loader &&
@@ -518,6 +513,7 @@ public class ReflectUtils {
 				// in case of plain LinkageError (class already defined)
 				// or IllegalArgumentException (class in different package):
 				// fall through to traditional ClassLoader.defineClass below
+				t = target;
 			}
 			catch (Throwable ex) {
 				throw new CodeGenerationException(ex);
@@ -541,9 +537,11 @@ public class ReflectUtils {
 					throw new CodeGenerationException(ex.getTargetException());
 				}
 				// in case of UnsupportedOperationException, fall through
+				t = ex.getTargetException();
 			}
 			catch (Throwable ex) {
 				// publicDefineClass method not available -> fall through
+				t = ex;
 			}
 
 			// Classic option: protected ClassLoader.defineClass method
@@ -564,6 +562,7 @@ public class ReflectUtils {
 					if (!ex.getClass().getName().endsWith("InaccessibleObjectException")) {
 						throw new CodeGenerationException(ex);
 					}
+					t = ex;
 				}
 			}
 		}
@@ -586,7 +585,7 @@ public class ReflectUtils {
 
 		// No defineClass variant available at all?
 		if (c == null) {
-			throw new CodeGenerationException(THROWABLE);
+			throw new CodeGenerationException(t);
 		}
 
 		// Force static initializers to run.
@@ -609,31 +608,22 @@ public class ReflectUtils {
 		return new MethodInfo() {
 			private ClassInfo ci;
 
-			@Override
 			public ClassInfo getClassInfo() {
-				if (ci == null) {
+				if (ci == null)
 					ci = ReflectUtils.getClassInfo(member.getDeclaringClass());
-				}
 				return ci;
 			}
 
-			@Override
 			public int getModifiers() {
 				return modifiers;
 			}
 
-			@Override
 			public Signature getSignature() {
 				return sig;
 			}
 
-			@Override
 			public Type[] getExceptionTypes() {
 				return ReflectUtils.getExceptionTypes(member);
-			}
-
-			public Attribute getAttribute() {
-				return null;
 			}
 		};
 	}
@@ -646,19 +636,15 @@ public class ReflectUtils {
 		final Type type = Type.getType(clazz);
 		final Type sc = (clazz.getSuperclass() == null) ? null : Type.getType(clazz.getSuperclass());
 		return new ClassInfo() {
-			@Override
 			public Type getType() {
 				return type;
 			}
-			@Override
 			public Type getSuperType() {
 				return sc;
 			}
-			@Override
 			public Type[] getInterfaces() {
 				return TypeUtils.getTypes(clazz.getInterfaces());
 			}
-			@Override
 			public int getModifiers() {
 				return clazz.getModifiers();
 			}

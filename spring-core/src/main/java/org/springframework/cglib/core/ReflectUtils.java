@@ -77,6 +77,7 @@ public class ReflectUtils {
 		Throwable throwable = null;
 		try {
 			privateLookupIn = (Method) AccessController.doPrivileged(new PrivilegedExceptionAction() {
+				@Override
 				public Object run() throws Exception {
 					try {
 						return MethodHandles.class.getMethod("privateLookupIn", Class.class, MethodHandles.Lookup.class);
@@ -87,6 +88,7 @@ public class ReflectUtils {
 				}
 			});
 			lookupDefineClass = (Method) AccessController.doPrivileged(new PrivilegedExceptionAction() {
+				@Override
 				public Object run() throws Exception {
 					try {
 						return MethodHandles.Lookup.class.getMethod("defineClass", byte[].class);
@@ -97,6 +99,7 @@ public class ReflectUtils {
 				}
 			});
 			classLoaderDefineClass = (Method) AccessController.doPrivileged(new PrivilegedExceptionAction() {
+				@Override
 				public Object run() throws Exception {
 					return ClassLoader.class.getDeclaredMethod("defineClass",
 							String.class, byte[].class, Integer.TYPE, Integer.TYPE, ProtectionDomain.class);
@@ -104,6 +107,7 @@ public class ReflectUtils {
 			});
 			protectionDomain = getProtectionDomain(ReflectUtils.class);
 			AccessController.doPrivileged(new PrivilegedExceptionAction() {
+				@Override
 				public Object run() throws Exception {
 					Method[] methods = Object.class.getDeclaredMethods();
 					for (Method method : methods) {
@@ -160,11 +164,7 @@ public class ReflectUtils {
 		if (source == null) {
 			return null;
 		}
-		return (ProtectionDomain) AccessController.doPrivileged(new PrivilegedAction() {
-			public Object run() {
-				return source.getProtectionDomain();
-			}
-		});
+		return (ProtectionDomain) AccessController.doPrivileged((PrivilegedAction) source::getProtectionDomain);
 	}
 
 	public static Type[] getExceptionTypes(Member member) {
@@ -353,8 +353,9 @@ public class ReflectUtils {
 	}
 
 	public static String[] getNames(Class[] classes) {
-		if (classes == null)
+		if (classes == null) {
 			return null;
+		}
 		String[] names = new String[classes.length];
 		for (int i = 0; i < names.length; i++) {
 			names[i] = classes[i].getName();
@@ -447,16 +448,17 @@ public class ReflectUtils {
 		if (type == Object.class) {
 			list.addAll(OBJECT_METHODS);
 		}
-		else
-			list.addAll(java.util.Arrays.asList(type.getDeclaredMethods()));
+		else {
+			list.addAll(Arrays.asList(type.getDeclaredMethods()));
+		}
 
 		Class superclass = type.getSuperclass();
 		if (superclass != null) {
 			addAllMethods(superclass, list);
 		}
 		Class[] interfaces = type.getInterfaces();
-		for (int i = 0; i < interfaces.length; i++) {
-			addAllMethods(interfaces[i], list);
+		for (Class anInterface : interfaces) {
+			addAllMethods(anInterface, list);
 		}
 
 		return list;
@@ -607,20 +609,25 @@ public class ReflectUtils {
 		return new MethodInfo() {
 			private ClassInfo ci;
 
+			@Override
 			public ClassInfo getClassInfo() {
-				if (ci == null)
+				if (ci == null) {
 					ci = ReflectUtils.getClassInfo(member.getDeclaringClass());
+				}
 				return ci;
 			}
 
+			@Override
 			public int getModifiers() {
 				return modifiers;
 			}
 
+			@Override
 			public Signature getSignature() {
 				return sig;
 			}
 
+			@Override
 			public Type[] getExceptionTypes() {
 				return ReflectUtils.getExceptionTypes(member);
 			}
@@ -639,15 +646,19 @@ public class ReflectUtils {
 		final Type type = Type.getType(clazz);
 		final Type sc = (clazz.getSuperclass() == null) ? null : Type.getType(clazz.getSuperclass());
 		return new ClassInfo() {
+			@Override
 			public Type getType() {
 				return type;
 			}
+			@Override
 			public Type getSuperType() {
 				return sc;
 			}
+			@Override
 			public Type[] getInterfaces() {
 				return TypeUtils.getTypes(clazz.getInterfaces());
 			}
+			@Override
 			public int getModifiers() {
 				return clazz.getModifiers();
 			}

@@ -242,7 +242,7 @@ public class CglibSubclassingInstantiationStrategy extends SimpleInstantiationSt
 				Object bean = (argsToUse != null ? this.owner.getBean(lo.getBeanName(), argsToUse) :
 						this.owner.getBean(lo.getBeanName()));
 				// Detect package-protected NullBean instance through equals(null) check
-				return (bean.equals(null) ? null : bean);
+				return bean;
 			}
 			else {
 				// Find target bean matching the (potentially generic) method return type

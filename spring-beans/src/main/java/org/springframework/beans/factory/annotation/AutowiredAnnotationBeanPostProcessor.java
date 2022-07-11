@@ -640,6 +640,7 @@ public class AutowiredAnnotationBeanPostProcessor implements SmartInstantiationA
 				value = resolveFieldValue(field, bean, beanName);
 			}
 			if (value != null) {
+				// field 采用反射进行注入
 				ReflectionUtils.makeAccessible(field);
 				field.set(bean, value);
 			}
@@ -721,6 +722,7 @@ public class AutowiredAnnotationBeanPostProcessor implements SmartInstantiationA
 			}
 			if (arguments != null) {
 				try {
+					// 对method也是用反射进行注入
 					ReflectionUtils.makeAccessible(method);
 					method.invoke(bean, arguments);
 				}

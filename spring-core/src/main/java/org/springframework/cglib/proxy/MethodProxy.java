@@ -167,13 +167,17 @@ public class MethodProxy {
 		return fastClassInfo.i2;
 	}
 
-	// For testing
+	/**
+	 * For testing
+	 */
 	FastClass getFastClass() {
 		init();
 		return fastClassInfo.f1;
 	}
 
-	// For testing
+	/**
+	 * For testing
+	 */
 	FastClass getSuperFastClass() {
 		init();
 		return fastClassInfo.f2;
@@ -221,8 +225,9 @@ public class MethodProxy {
 			throw ex.getTargetException();
 		}
 		catch (IllegalArgumentException ex) {
-			if (fastClassInfo.i1 < 0)
+			if (fastClassInfo.i1 < 0) {
 				throw new IllegalArgumentException("Protected method: " + sig1);
+			}
 			throw ex;
 		}
 	}

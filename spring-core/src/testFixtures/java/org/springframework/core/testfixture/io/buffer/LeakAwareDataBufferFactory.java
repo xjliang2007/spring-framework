@@ -76,18 +76,26 @@ public class LeakAwareDataBufferFactory implements DataBufferFactory {
 
 
 	/**
-	 * Checks whether all of the data buffers allocated by this factory have also been released.
+	 * Checks whether all the data buffers allocated by this factory have also been released.
 	 * If not, then an {@link AssertionError} is thrown. Typically used from a JUnit <em>after</em>
 	 * method.
 	 */
 	public void checkForLeaks() {
+		checkForLeaks(Duration.ofSeconds(0));
+	}
+
+	/**
+	 * Variant of {@link #checkForLeaks()} with the option to wait for buffer release.
+	 * @param timeout how long to wait for buffers to be released; 0 for no waiting
+	 */
+	public void checkForLeaks(Duration timeout) {
 		this.trackCreated.set(false);
 		Instant start = Instant.now();
 		while (true) {
 			if (this.created.stream().noneMatch(LeakAwareDataBuffer::isAllocated)) {
 				return;
 			}
-			if (Instant.now().isBefore(start.plus(Duration.ofSeconds(5)))) {
+			if (Instant.now().isBefore(start.plus(timeout))) {
 				try {
 					Thread.sleep(50);
 				}
